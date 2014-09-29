@@ -1,17 +1,16 @@
-// ask_transmitter.pde
-// -*- mode: C++ -*-
-// Simple example of how to use RadioHead to transmit messages
-// with a simple ASK transmitter in a very simple way.
-// Implements a simplex (one-way) transmitter with an TX-C1 module
+// RadioHead
 #include <RH_ASK.h>
 #include <SPI.h> // Not actually used but needed to compile
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <JeeLib.h> // Low power functions library
 RH_ASK driver;
+ISR(WDT_vect) { Sleepy::watchdogEvent(); } // Setup the watchdog
 
 // Data wire is plugged into pin 2 on the Arduino
 #define ONE_WIRE_BUS 2
 
+#define DEVICE_ID "001"
 // Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
 OneWire oneWire(ONE_WIRE_BUS);
 
@@ -20,36 +19,28 @@ DallasTemperature sensors(&oneWire);
 
 void setup()
 {
-  Serial.begin(9600); // Debugging only
+  Serial.begin(9600);
    if (!driver.init())
     Serial.println("init failed");
     
-  // start serial port
-  Serial.begin(9600);
-  Serial.println("Dallas Temperature IC Control Library Demo");
-  
-   // Start up the library
   sensors.begin(); // IC Default 9 bit. If you have troubles consider upping it 12. Ups the delay giving the IC more time to process the temperature measurement
 }
 void loop()
 {
-  
-  
-  // request to all devices on the bus
-  //Serial.print("Requesting temperatures...");
   sensors.requestTemperatures(); // Send the command to get temperatures
-  //Serial.println("DONE");
   
-  //Serial.print("Temperature for Device 1 is: ");
-  Serial.println(sensors.getTempCByIndex(0)); // Why "byIndex"? You can have more than one IC on the same bus. 0 refers to the first IC on the wire
-  float t = sensors.getTempCByIndex(0);
-  char tempF[6];
-  dtostrf(t, 6, 2, tempF);
-  Serial.println(tempF);
+  float temperature = sensors.getTempCByIndex(0);
+  char tempF[10];
+  dtostrf(temperature, 6, 2, tempF);
   
-  const char *msg = tempF;
-  Serial.println(msg);
+  char str[30];
+  sprintf(str, "KSMS-001-001-%s", tempF);
+  Serial.println(str);
+  
+  char* msg = str;
+  
   driver.send((uint8_t *)msg, strlen(msg));
   driver.waitPacketSent();
-  delay(2000);
+  //delay(10000);
+  Sleepy::loseSomeTime(10000);
 }
